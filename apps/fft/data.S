@@ -1,0 +1,111 @@
+.section .data,"aw",@progbits
+.global NFFT
+.balign 8
+NFFT:
+    .word 0x00000010
+    .word 0x00000000
+.global samples
+.balign NR_LANES*4
+samples:
+    .word 0xc6490bf8
+    .word 0xc6af2189
+    .word 0x46a2a43e
+    .word 0x46ddbf56
+    .word 0x45c9fd66
+    .word 0x46a1c3fe
+    .word 0x4683ff41
+    .word 0x469d111d
+    .word 0xc4f9f4a6
+    .word 0x45678a43
+    .word 0x46b36e32
+    .word 0x46825203
+    .word 0xc6a96454
+    .word 0x46fe1c1c
+    .word 0x45a0fd58
+    .word 0xc630b78b
+    .word 0x46361bea
+    .word 0x46fc0b14
+    .word 0xc6819a0a
+    .word 0xc6fa98ca
+    .word 0x46f22a32
+    .word 0xc6fa96b0
+    .word 0xc6e7c105
+    .word 0x46bc1c95
+    .word 0x46d5bfa4
+    .word 0x46baf504
+    .word 0x455ad35b
+    .word 0xc64bcb8a
+    .word 0xc6bdd672
+    .word 0x46a0744a
+    .word 0xc4d7378d
+    .word 0x46597984
+.global twiddle
+.balign NR_LANES*4
+twiddle:
+    .word 0x46fffe00
+    .word 0x00000000
+    .word 0x46ec8185
+    .word 0x4643ed8d
+    .word 0x46b50389
+    .word 0x46b50389
+    .word 0x4643ed8d
+    .word 0x46ec8185
+    .word 0x2c0d3017
+    .word 0x46fffe00
+    .word 0xc643ed8d
+    .word 0x46ec8185
+    .word 0xc6b50389
+    .word 0x46b50389
+    .word 0xc6ec8185
+    .word 0x4643ed8d
+    .word 0xc6fffe00
+    .word 0x2c8d3017
+    .word 0xc6ec8185
+    .word 0xc643ed8d
+    .word 0xc6b50389
+    .word 0xc6b50389
+    .word 0xc643ed8d
+    .word 0xc6ec8185
+    .word 0xacd3c823
+    .word 0xc6fffe00
+    .word 0x4643ed8d
+    .word 0xc6ec8185
+    .word 0x46b50389
+    .word 0xc6b50389
+    .word 0x46ec8185
+    .word 0xc643ed8d
+.global gold_out
+.balign NR_LANES*4
+gold_out:
+    .word 0x47107a01
+    .word 0x47f5ebc1
+    .word 0x47616755
+    .word 0x45e5a299
+    .word 0xc78acb90
+    .word 0xc7d42cfa
+    .word 0x4788d0d6
+    .word 0xc73fd0a6
+    .word 0xc65d84af
+    .word 0xc72cdb4a
+    .word 0xc709e97a
+    .word 0xc811bb0f
+    .word 0x47819530
+    .word 0x47f8da62
+    .word 0xc789e342
+    .word 0xc851de57
+    .word 0xc5b3174a
+    .word 0x46fd6c13
+    .word 0xc7b79704
+    .word 0x46efd612
+    .word 0xc7d8b22d
+    .word 0xc7b74390
+    .word 0x47489840
+    .word 0xc80e40c6
+    .word 0x479b4d5c
+    .word 0x470bed6e
+    .word 0xc7d1bf96
+    .word 0x461ac60b
+    .word 0x4612815d
+    .word 0x45732cbe
+    .word 0xc784c9e9
+    .word 0x478f9b03

@@ -158,12 +158,12 @@ void SetupTwiddlesLUT(signed short *Twiddles, int Nfft, int Inverse)
 
 /* Reorder from natural indexes to digitally-reversed one. Uses a pre computed LUT */
 
-void SwapSamples (vtype *__restrict__ Data, short *__restrict__ SwapTable, int Ni)
+void SwapSamples (cmplxtype *__restrict__ Data, short *__restrict__ SwapTable, int Ni)
 {
   int i;
 
   for (i = 0; i < Ni; i++) {
-    vtype S = Data[i];
+    cmplxtype S = Data[i];
     int SwapIndex = SwapTable[i];
     if (i < SwapIndex) {
       Data[i] = Data[SwapIndex]; Data[SwapIndex] = S;
@@ -214,9 +214,9 @@ void  __attribute__ ((__noinline__)) SetupInput(signed short *In, int N, int Dyn
 // Floating-Point //
 ////////////////////
 
-static inline vtype cplxmuls_float(vtype x, vtype y)
+static inline cmplxtype cplxmuls_float(cmplxtype x, cmplxtype y)
 {
-   return (vtype) {(x)[0] * (y)[0] - (x)[1] * (y)[1], (x)[0] * (y)[1] + (x)[1] * (y)[0]};
+   return (cmplxtype) {(x)[0] * (y)[0] - (x)[1] * (y)[1], (x)[0] * (y)[1] + (x)[1] * (y)[0]};
 }
 
 /*
@@ -230,13 +230,13 @@ void Radix2FFT_DIT_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
   int iCnt1, iCnt2, iCnt3,
             iQ,    iL,    iM,
             iA,    iB;
-  vtype *CoeffV = (vtype *) Twiddles;
-  vtype *DataV  = (vtype *) Data;
+  cmplxtype *CoeffV = (cmplxtype *) Twiddles;
+  cmplxtype *DataV  = (cmplxtype *) Data;
 
       iL = N_FFT2 >> 1; iM = 1; iA = 0;
   /* First Layer: W = (1, 0) */
         for (iCnt3 = 0; iCnt3 < (N_FFT2>>1); iCnt3++) {
-    vtype Tmp;
+    cmplxtype Tmp;
     iB = iA + iM;
     Tmp = DataV[iB];
     DataV[iB] = (DataV[iA] - Tmp);
@@ -248,10 +248,10 @@ void Radix2FFT_DIT_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
       for (iCnt1 = 1; iCnt1 < iLog2N; ++iCnt1) {
           iQ = 0;
           for (iCnt2 = 0; iCnt2 < iM; ++iCnt2) {
-                vtype W = CoeffV[iQ];
+                cmplxtype W = CoeffV[iQ];
                 iA = iCnt2;
                 for (iCnt3 = 0; iCnt3 < iL; iCnt3++) {
-                    vtype Tmp, Tmp1;
+                    cmplxtype Tmp, Tmp1;
                     iB = iA + iM;
                     Tmp = cplxmuls_float(DataV[iB], W);
                     Tmp1 = DataV[iA];
@@ -273,8 +273,8 @@ void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
   int iCnt1, iCnt2, iCnt3,
             iQ,    iL,    iM,
             iA,    iB;
-  vtype *CoeffV = (vtype *) Twiddles;
-  vtype *DataV  = (vtype *) Data;
+  cmplxtype *CoeffV = (cmplxtype *) Twiddles;
+  cmplxtype *DataV  = (cmplxtype *) Data;
 
   iL = 1;
   iM = N_FFT2 / 2;
@@ -282,10 +282,10 @@ void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
     for (iCnt1 = 0; iCnt1 < (iLog2N-1); iCnt1++) {
       iQ = 0;
       for (iCnt2 = 0; iCnt2 < iM; iCnt2++) {
-        vtype W = CoeffV[iQ];
+        cmplxtype W = CoeffV[iQ];
         iA = iCnt2;
         for (iCnt3 = 0; iCnt3 < iL; iCnt3++) {
-          vtype Tmp;
+          cmplxtype Tmp;
           iB = iA + iM;
           Tmp = DataV[iA] - DataV[iB];
           DataV[iA] = DataV[iA] + DataV[iB];
@@ -301,7 +301,7 @@ void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
 
     /* Last Layer: W = (1, 0) */
     for (iCnt3 = 0; iCnt3 < (N_FFT2>>1); iCnt3++) {
-      vtype Tmp;
+      cmplxtype Tmp;
       iB = iA + 1;
       Tmp = (DataV[iA] - DataV[iB]);
       DataV[iA] = (DataV[iA] + DataV[iB]);
@@ -314,19 +314,18 @@ void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
 // Vectorial code //
 ////////////////////
 
-#define vftype vfloat32m1_t
-#define ftype float
 
+/*
 // First implementation. LMUL == 1
 // This implementation works if n_fft < VLMAX for a fixed vsew
 void fft_r2dit_vec(const float* samples, const float* twiddles, size_t n_fft) {
 
   size_t vl = n_fft/2;
   unsigned int log2_nfft= 31 - __builtin_clz(n_fft);
-  vftype upper_wing_re, upper_wing_im;
-  vftype lower_wing_re, lower_wing_im;
-  vftype twiddle_re, twiddle_im;
-  vftype vbuf_re, vbuf_im;
+  vdtype upper_wing_re, upper_wing_im;
+  vdtype lower_wing_re, lower_wing_im;
+  vdtype twiddle_re, twiddle_im;
+  vdtype vbuf_re, vbuf_im;
 
   // Use undisturbed policy
   vsetvl_e32m1(vl);
@@ -410,24 +409,35 @@ void fft_r2dit_vec(const float* samples, const float* twiddles, size_t n_fft) {
   // Store the result to memory
   store_output_values();
 }
+*/
 
+
+/*
+
+Q) WHY IS THIS FUNCTION COMMENTED?
+A) The permutation steps depends on slides on a mask vector.
+   This is a problem for the intrinsics (no slides on mask vector?)
+   Some of the mask vectors should be prepared anyway only with
+   splats of scalars from CVA6
 
 // First implementation. LMUL == 1
 // This implementation works if n_fft < VLMAX for a fixed vsew
 // Current implementation does not make use of segment memory ops and keeps
 // real and img parts in two different separated memory locations
 // This will be changed as soon as Ara supports segmented mem ops
-void fft_r2dif_vec(const float* samples_re,  const float* samples_im,
-                   const float* twiddles_re, const float* twiddles_im, size_t n_fft) {
+void fft_r2dif_vec(float* samples_re, float* samples_im,
+                   const float* twiddles_re, const float* twiddles_im,
+                   size_t n_fft) {
 
   // vl of the vectors (each vector contains half of the samples)
-  size_t orig_vl = n_fft/2;
-  size_t vl = orig_vl;
+  size_t vl = n_fft/2;
+  size_t vl_mask = vl;
   unsigned int log2_nfft= 31 - __builtin_clz(n_fft);
-  vftype upper_wing_re, upper_wing_im;
-  vftype lower_wing_re, lower_wing_im;
-  vftype twiddle_re, twiddle_im;
-  vftype vbuf_re, vbuf_im;
+  vdtype upper_wing_re, upper_wing_im;
+  vdtype lower_wing_re, lower_wing_im;
+  vdtype twiddle_re, twiddle_im;
+  vdtype vbuf_re, vbuf_im;
+  vbool32_t mask_vec, mask_vec_buf;
 
   // Use undisturbed policy
   vsetvl_e32m1(vl);
@@ -438,9 +448,9 @@ void fft_r2dif_vec(const float* samples_re,  const float* samples_im,
 
   // Prepare the first mask vector to be used in the permutations
   // VLSU and VALU can work separately
-  mask_vec = vmv_v_x_i32m1 (0, vl);
-  mask_vec = vmv_v_x_i32m1 (0xFFFFFFFF, vl/2);
-  mask_vec_buf = vmv_v_x_i32m1 (0, vl);
+  mask_vec     = vmclr_m_b32(vl);
+  mask_vec     = vmset_m_b32(vl/2);
+  mask_vec_buf = vmclr_m_b32(vl);
 
   ///////////////////////////////
   // LOAD samples and twiddles /
@@ -473,45 +483,45 @@ void fft_r2dif_vec(const float* samples_re,  const float* samples_im,
   upper_wing_re = vbuf_re;
   upper_wing_im = vbuf_im;
   // 3) Multiply lower wing for the twiddle factor
-  vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im);
-  lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im);
-  lower_wing_re = vbuf; // Just for the label. Verify that there is no actual copy of this vector!
+  vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+  lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+  lower_wing_re = vbuf_re; // Just for the label. Verify that there is no actual copy of this vector!
 
   /////////////////////////////
   // First permutation stage //
   /////////////////////////////
 
   // Create the current mask level
-  vslideup_vi_f32m1(mask_vec_buf, mask_vec, vl/4, vl);
-  mask_vec = vmxor_mm_b1(mask_vec, mask_vec_buf, vl);
-  mask_vec_buf = vmnot_mm_b1(mask_buf, mask_vec, vl);
+//todo  vslideup_vx_f32m1(mask_vec_buf, mask_vec, vl/4, vl_mask);
+  mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
+  mask_vec_buf = vmnot_m_b32(mask_vec, vl);
 
   // Permutate the numbers
   // The first permutation is easier (just halving, no masks needed)
-  vslidedown_vi_f32m1(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
-  vslidedown_vi_f32m1(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
-  vslideup_vi_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
-  vslideup_vi_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
+  vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
+  vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
   lower_wing_re = vmv_v_v_f32m1(vbuf_re, vl/2);
   lower_wing_im = vmv_v_v_f32m1(vbuf_im, vl/2);
 
   // Butterfly until the end
-  for (int i = 1; i < log2_nfft; ++i) {
+  for (unsigned int i = 1; i < log2_nfft; ++i) {
     // Bump the twiddle pointers.
-    twiddles_re += orig_vl;
-    twiddles_im += orig_vl;
+    twiddles_re += vl;
+    twiddles_im += vl;
 
     // Load twiddle factors
-    twiddle_re = vle32_v_f32m1(twiddles_re, orig_vl);
-    twiddle_im = vle32_v_f32m1(twiddles_im, orig_vl);
+    twiddle_re = vle32_v_f32m1(twiddles_re, vl);
+    twiddle_im = vle32_v_f32m1(twiddles_im, vl);
 
     // HALVE vl
-    vl /= 2;
+    vl_mask >>= 1;
 
     // Create the current mask level
-    vslideup_vi_f32m1(mask_vec_buf, mask_vec, 0, vl/2);
-    mask_vec = vmxor_mm_b1(mask_vec, mask_vec_buf, vl);
-    mask_vec_buf = vmnot_mm_b1(mask_buf, mask_vec, vl);
+//todo    vslideup_vx_f32m1(mask_vec_buf, mask_vec, 0, vl_mask);
+    mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
+    mask_vec_buf = vmnot_m_b32(mask_vec, vl);
 
     // 1) Get the upper wing output
     vbuf_re = vfadd_vv_f32m1(upper_wing_re, lower_wing_re, vl);
@@ -523,87 +533,229 @@ void fft_r2dif_vec(const float* samples_re,  const float* samples_im,
     upper_wing_re = vbuf_re;
     upper_wing_im = vbuf_im;
     // 3) Multiply lower wing for the twiddle factor
-    vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im);
-    lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im);
-    lower_wing_re = vbuf; // Just for the label. Verify that there is no actual copy of this vector!
+    vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+    lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+    lower_wing_re = vbuf_re; // Just for the label. Verify that there is no actual copy of this vector!
 
     // Different permutation for the last round
     if (i != log2_nfft - 1) {
       // Permutate the numbers
-      vslidedown_vi_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
-      vslidedown_vi_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
-      vslideup_vi_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
-      vslideup_vi_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
-      lower_wing_re = vmv_v_v_f32m1_m(mask_vec, vbuf_re, vl/2);
-      lower_wing_im = vmv_v_v_f32m1_m(mask_vec, vbuf_im, vl/2);
+      vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
+      vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
+      vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
+      vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
+      lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl/2);
+      lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl/2);
     }
   }
 
   // Store the result to memory
   // Reorder the results: rotate, mask, mix
   // Last round of permutation
-  vslidedown_vi_f32m1(mask_vec_buf, vbuf_re, upper_wing_re, 0, orig_vl/2);
-  vslideup_vi_f32m1_m(mask_vec, upper_wing_re, lower_wing_re, vl/2, vl/2);;
-  lower_wing_re = vmv_v_v_f32m1_m(mask_vec, vbuf_re, vl/2);
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, 0, vl/2);
+  vslideup_vx_f32m1_m(mask_vec, upper_wing_re, lower_wing_re, vl/2, vl/2);;
+  lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl/2);
 
   // Store (segmented if RE and IM are separated!)
-  vse32_v_f32m1(output_re, lower_wing_re, orig_vl);
-  vse32_v_f32m1(ourput_im, lower_wing_im, orig_vl);
+  vse32_v_f32m1(samples_re, lower_wing_re, vl);
+  vse32_v_f32m1(samples_im, lower_wing_im, vl);
 }
+*/
 
-// Vector - Scalar
-vftype cmplx_mul_re_vf(vftype v0_re, vftype v0_im, ftype f1_re, ftype f1_im) {
-  vftype vbuf;
-
-  vbuf = vfmul_vf_f32m1(v0_re, f1_re, vl);
-  return vfnmsac_vf_f32m1(vbuf, v0_im, f1_im, vl);
-}
-
-vftype cmplx_mul_im_vf(vftype v0_re, vftype v0_im, ftype f1_re, ftype f1_im) {
-  vftype vbuf;
-
-  vbuf = vfmul_vf_f32m1(v0_re, f1_im, vl);
-  return vfmacc_vv_f32m1(vbuf, v0_im, f1_re, vl);
-}
-
+//// Vector - Scalar
+//vdtype cmplx_mul_re_vf(vdtype v0_re, vdtype v0_im, dtype f1_re, dtype f1_im, size_t vl) {
+//  vdtype vbuf;
+//
+//  vbuf = vfmul_vf_f32m1(v0_re, f1_re, vl);
+//  return vfnmsac_vf_f32m1(vbuf, v0_im, f1_im, vl);
+//}
+//
+//vdtype cmplx_mul_im_vf(vdtype v0_re, vdtype v0_im, dtype f1_re, dtype f1_im, size_t vl) {
+//  vdtype vbuf;
+//
+//  vbuf = vfmul_vf_f32m1(v0_re, f1_im, vl);
+//  return vfmacc_vf_f32m1(vbuf, v0_im, f1_re, vl);
+//}
+//
 // Vector - Vector
-vftype cmplx_mul_re_vv(vftype v0_re, vftype v0_im, vftype f1_re, vftype f1_im) {
-  vftype vbuf;
+vdtype cmplx_mul_re_vv(vdtype v0_re, vdtype v0_im, vdtype f1_re, vdtype f1_im, size_t vl) {
+  vdtype vbuf;
 
-  vbuf = vfmul_vf_f32m1(v0_re, f1_re, vl);
-  return vfnmsac_vf_f32m1(vbuf, v0_im, f1_im, vl);
+  vbuf = vfmul_vv_f32m1(v0_re, f1_re, vl);
+  return vfnmsac_vv_f32m1(vbuf, v0_im, f1_im, vl);
 }
 
-vftype cmplx_mul_im_vv(vftype v0_re, vftype v0_im, vftype f1_re, vftype f1_im) {
-  vftype vbuf;
+vdtype cmplx_mul_im_vv(vdtype v0_re, vdtype v0_im, vdtype f1_re, vdtype f1_im, size_t vl) {
+  vdtype vbuf;
 
-  vbuf = vfmul_vf_f32m1(v0_re, f1_im, vl);
+  vbuf = vfmul_vv_f32m1(v0_re, f1_im, vl);
   return vfmacc_vv_f32m1(vbuf, v0_im, f1_re, vl);
 }
 
 // Ancillary function to divide real and imaginary parts
-// sizeof(vtype) == 2*sizeof(dtype)
-float* void cmplx2reim(vtype* cmplx, dtype* buf, size_t len) {
+// sizeof(cmplxtype) == 2*sizeof(dtype)
+float* cmplx2reim(cmplxtype* cmplx, dtype* buf, size_t len) {
 
   float* cmplx_flat_ptr = (float*) cmplx;
 
   // Divide the real and img parts
-  for (i = 0; i < len; ++i) {
+  for (unsigned int i = 0; i < len; ++i) {
     // Backup the img parts
-    buf = cmplx[i][1];
+    buf[i] = cmplx[i][1];
   }
-  for (i = 0; i < len; ++i) {
+  for (unsigned int i = 0; i < len; ++i) {
     // Save the real parts
     // No RAW hazards on mem in this way
     cmplx_flat_ptr[i] = cmplx[i][0];
   }
 
-  cmplx_flat_ptr += len;
-
-  for (i = 0; i < len; ++i) {
+  for (unsigned int i = 0; i < len; ++i) {
     // Save the img parts
-    cmplx_flat_ptr[i] = buf[i];
+    cmplx_flat_ptr[i + len] = buf[i];
   }
 
   return cmplx_flat_ptr;
+}
+
+// First implementation. LMUL == 1
+// This implementation works if n_fft < VLMAX for a fixed vsew
+// Current implementation does not make use of segment memory ops and keeps
+// real and img parts in two different separated memory locations
+// This will be changed as soon as Ara supports segmented mem ops
+void fft_r2dif_vec(float* samples_re, float* samples_im,
+                   const float* twiddles_re, const float* twiddles_im,
+                   const uint8_t** mask_addr_vec, size_t n_fft) {
+
+  // vl of the vectors (each vector contains half of the samples)
+  size_t vl = n_fft/2;
+  size_t vl_mask = vl;
+  unsigned int log2_nfft= 31 - __builtin_clz(n_fft);
+  vdtype upper_wing_re, upper_wing_im;
+  vdtype lower_wing_re, lower_wing_im;
+  vdtype twiddle_re, twiddle_im;
+  vdtype vbuf_re, vbuf_im;
+  vbool32_t mask_vec, mask_vec_buf;
+
+  // Use undisturbed policy
+  vsetvl_e32m1(vl);
+
+  //////////////////////
+  // Mask Preparation //
+  //////////////////////
+
+  // Prepare the first mask vector to be used in the permutations
+  // VLSU and VALU can work separately
+  mask_vec     = vmclr_m_b32(vl);
+  mask_vec     = vmset_m_b32(vl/2);
+  mask_vec_buf = vmclr_m_b32(vl);
+
+  ///////////////////////////////
+  // LOAD samples and twiddles /
+  ///////////////////////////////
+
+  // If real/img parts are consecutive in memory, it's possible to
+  // load/store segment to divide in two registers.
+  // Ara does not support these instructions now, so we will hypothesize
+  // different mem locations
+  upper_wing_re = vle32_v_f32m1(samples_re     , vl);
+  lower_wing_re = vle32_v_f32m1(samples_re + vl, vl);
+  upper_wing_im = vle32_v_f32m1(samples_im     , vl);
+  lower_wing_im = vle32_v_f32m1(samples_im + vl, vl);
+
+  // Load twiddle factors
+  twiddle_re = vle32_v_f32m1(twiddles_re, vl);
+  twiddle_im = vle32_v_f32m1(twiddles_im, vl);
+
+  ///////////////////////////
+  // First butterfly stage //
+  ///////////////////////////
+
+  // 1) Get the upper wing output
+  vbuf_re = vfadd_vv_f32m1(upper_wing_re, lower_wing_re, vl);
+  vbuf_im = vfadd_vv_f32m1(upper_wing_im, lower_wing_im, vl);
+  // 2) Get the lower wing output
+  lower_wing_re = vfsub_vv_f32m1(upper_wing_re, lower_wing_re, vl);
+  lower_wing_im = vfsub_vv_f32m1(upper_wing_im, lower_wing_im, vl);
+  // Copy labels
+  upper_wing_re = vbuf_re;
+  upper_wing_im = vbuf_im;
+  // 3) Multiply lower wing for the twiddle factor
+  vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+  lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+  lower_wing_re = vbuf_re; // Just for the label. Verify that there is no actual copy of this vector!
+
+  /////////////////////////////
+  // First permutation stage //
+  /////////////////////////////
+
+  // Create the current mask level
+  //vslideup_vx_f32m1(mask_vec_buf, mask_vec, vl/4, vl_mask);
+  //mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
+  mask_vec = vlm_v_b32(*mask_addr_vec[0], vl);
+  mask_vec_buf = vmnot_m_b32(mask_vec, vl);
+
+  // Permutate the numbers
+  // The first permutation is easier (just halving, no masks needed)
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
+  vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
+  vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
+  lower_wing_re = vmv_v_v_f32m1(vbuf_re, vl/2);
+  lower_wing_im = vmv_v_v_f32m1(vbuf_im, vl/2);
+
+  // Butterfly until the end
+  for (unsigned int i = 1; i < log2_nfft; ++i) {
+    // Bump the twiddle pointers.
+    twiddles_re += vl;
+    twiddles_im += vl;
+
+    // Load twiddle factors
+    twiddle_re = vle32_v_f32m1(twiddles_re, vl);
+    twiddle_im = vle32_v_f32m1(twiddles_im, vl);
+
+    // HALVE vl
+    vl_mask >>= 1;
+
+    // Create the current mask level
+    //vslideup_vx_f32m1(mask_vec_buf, mask_vec, 0, vl_mask);
+    //mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
+    mask_vec = vlm_v_b32(*mask_addr_vec[i], vl);
+    mask_vec_buf = vmnot_m_b32(mask_vec, vl);
+
+    // 1) Get the upper wing output
+    vbuf_re = vfadd_vv_f32m1(upper_wing_re, lower_wing_re, vl);
+    vbuf_im = vfadd_vv_f32m1(upper_wing_im, lower_wing_im, vl);
+    // 2) Get the lower wing output
+    lower_wing_re = vfsub_vv_f32m1(upper_wing_re, lower_wing_re, vl);
+    lower_wing_im = vfsub_vv_f32m1(upper_wing_im, lower_wing_im, vl);
+    // Copy labels
+    upper_wing_re = vbuf_re;
+    upper_wing_im = vbuf_im;
+    // 3) Multiply lower wing for the twiddle factor
+    vbuf_re       = cmplx_mul_re_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+    lower_wing_im = cmplx_mul_im_vv(lower_wing_re, lower_wing_im, twiddle_re, twiddle_im, vl);
+    lower_wing_re = vbuf_re; // Just for the label. Verify that there is no actual copy of this vector!
+
+    // Different permutation for the last round
+    if (i != log2_nfft - 1) {
+      // Permutate the numbers
+      vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
+      vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
+      vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
+      vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
+      lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl/2);
+      lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl/2);
+    }
+  }
+
+  // Store the result to memory
+  // Reorder the results: rotate, mask, mix
+  // Last round of permutation
+  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, 0, vl/2);
+  vslideup_vx_f32m1_m(mask_vec, upper_wing_re, lower_wing_re, vl/2, vl/2);;
+  lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl/2);
+
+  // Store (segmented if RE and IM are separated!)
+  vse32_v_f32m1(samples_re, lower_wing_re, vl);
+  vse32_v_f32m1(samples_im, lower_wing_im, vl);
 }

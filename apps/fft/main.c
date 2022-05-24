@@ -23,17 +23,18 @@
 #include "printf.h"
 #include "runtime.h"
 
-#define MAX_NFFT 4096
+#define MAX_NFFT 256
 
 extern unsigned long int NFFT;
 
 extern dtype twiddle[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
-extern dtype twiddle_v[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
-extern dtype samples[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
-dtype samples_copy[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
-dtype samples_vec[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+extern cmplxtype twiddle_vec[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+extern dtype twiddle_reim[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+extern cmplxtype samples[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+cmplxtype samples_copy[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+cmplxtype samples_vec[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
 dtype buf[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
-extern dtype gold_out[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
+extern cmplxtype gold_out[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
 signed short SwapTable[MAX_NFFT] __attribute__((aligned(32 * NR_LANES), section(".l2")));
 
 int main() {
@@ -68,25 +69,29 @@ int main() {
   memcpy((void*) samples_vec, (void*) samples, 2 * NFFT * sizeof(dtype));
 
   // Print the input
-  for (int i = 0; i < 2*NFFT; ++i) {
-    if (!(i % 2)) printf("In_DIT[%d] == %f ", i / 2, samples[i]);
-    else          printf("+ (%f)j\n", samples[i]);
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("In_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
   }
   printf("\n");
-  for (int i = 0; i < 2*NFFT; ++i) {
-    if (!(i % 2)) printf("In_DIF[%d] == %f ", i / 2, samples_copy[i]);
-    else          printf("+ (%f)j\n", samples_copy[i]);
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("In_DIF[%d] == %f + (%f)j\n", i, samples_copy[i][0], samples_copy[i][1]);
   }
+  printf("\n");
 
   // Swap samples for DIT FFT
-  SwapSamples((vtype *) samples, SwapTable, NFFT);
+  SwapSamples(samples, SwapTable, NFFT);
+
+  printf("Swapping samples for DIT:\n\n");
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("In_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
+  }
 
   /////////////
   // DIT FFT //
   /////////////
 
   start_timer();
-  Radix2FFT_DIT_float(samples, twiddle, NFFT);
+  Radix2FFT_DIT_float((dtype*) samples, twiddle, NFFT);
   stop_timer();
 
   // Performance metrics
@@ -98,9 +103,9 @@ int main() {
   /////////////
 
   start_timer();
-  Radix2FFT_DIF_float(samples_copy, twiddle, NFFT);
+  Radix2FFT_DIF_float((dtype*) samples_copy, twiddle, NFFT);
   stop_timer();
-  SwapSamples((vtype *) samples_copy, SwapTable, NFFT);
+  SwapSamples(samples_copy, SwapTable, NFFT);
 
   printf("Initializing Inputs for DIF\n");
 
@@ -111,32 +116,41 @@ int main() {
   ////////////////////
   // Vector DIF FFT //
   ////////////////////
+  // Example for 16 Samples
+  uint8 mask_addr_0 = {0xFF, 0x00, 0xFF, 0x00};
+  uint8 mask_addr_1 = {0xF0, 0xF0, 0xF0, 0xF0};
+  uint8 mask_addr_2 = {0xCC, 0xCC, 0xCC, 0xCC};
+  uint8 mask_addr_3 = {0xAA, 0xAA, 0xAA, 0xAA};
+  uint8_t** mask_addr_vec = {mask_addr_0, mask_addr_1, mask_addr_2, mask_addr_3};
 
   float* samples_reim = cmplx2reim(samples_vec, buf, NFFT);
+//  // Print the twiddles
+//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+//    printf("twiddle_vec[%d] == %f + j%f\n", i, (twiddle_vec[i])[0],  (twiddle_vec[i])[1]);
+//  }
+  float* twiddle_reim = cmplx2reim(twiddle_vec, buf, ((NFFT >> 1) * (31 - __builtin_clz(NFFT))));
+  // Print the twiddles
+//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+//    printf("twiddle_re[%d] == %f\n", i, twiddle_reim[i]);
+//  }
+//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+//    printf("twiddle_im[%d] == %f\n", i, twiddle_reim[i + ((NFFT >> 1) * (31 - __builtin_clz(NFFT)))]);
+//  }
   fft_r2dif_vec(samples_reim, samples_reim + NFFT,
-                   const float* twiddles_re, const float* twiddles_im, NFFT);
-
-/*
-  // Sanity check
-  printf("In_DIT[0] = %d\n", samples[0]);
-  printf("In_DIF[0] = %d\n", samples_copy[0]);
-  printf("gold_out[0] = %d\n", gold_out[0]);
-*/
+                twiddle_reim, twiddle_reim + ((NFFT >> 1) * (31 - __builtin_clz(NFFT))),
+                mask_addr_vec, NFFT);
 
   // Print the results
-  for (int i = 0; i < 2*NFFT; ++i) {
-    if (!(i % 2)) printf("In_DIT[%d] == %f ", i / 2, samples[i]);
-    else          printf("+ (%f)j\n", samples[i]);
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("Out_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
   }
   printf("\n");
-  for (int i = 0; i < 2*NFFT; ++i) {
-    if (!(i % 2)) printf("In_DIF[%d] == %f ", i / 2, samples_copy[i]);
-    else          printf("+ (%f)j\n", samples_copy[i]);
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("Out_DIF[%d] == %f + (%f)j\n", i, samples_copy[i][0], samples_copy[i][1]);
   }
   printf("\n");
-  for (int i = 0; i < 2*NFFT; ++i) {
-    if (!(i % 2)) printf("gold_out[%d] == %f ", i / 2, gold_out[i]);
-    else          printf("+ (%f)j\n", gold_out[i]);
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("gold_out[%d] == %f + (%f)j\n", i , gold_out[i][0], gold_out[i][1]);
   }
 /*
   // Check

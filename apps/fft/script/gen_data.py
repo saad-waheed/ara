@@ -49,25 +49,35 @@ def serialize_cmplx(vector, NFFT, dtype):
   serial_vec[1::2] = vector_im
   return serial_vec
 
-def setupTwiddlesLUT(Twiddles, Nfft):
+def setupTwiddlesLUT(Twiddles_vec, Nfft):
   Theta = (2 * np.pi) / Nfft;
-  with np.nditer(Twiddles, op_flags=['readwrite']) as it:
+  with np.nditer(Twiddles_vec, op_flags=['readwrite']) as it:
     for idx, twi in enumerate(it):
       Phi = Theta * idx;
-      twi[...]['re'] = np.cos(Phi) # * ((1 << FFT_TWIDDLE_DYN) - 1)
-      twi[...]['im'] = np.sin(Phi) # * ((1 << FFT_TWIDDLE_DYN) - 1)
+      twi[...]['re'] = np.cos(Phi)
+      twi[...]['im'] = np.sin(Phi)
 
 # For this first trial, let's suppose to have in memory all the
 # Twiddle factors, for each stage, already ordered, in contiguous
 # memory space
-def setupTwiddlesLUT_vec(Twiddles_vec, stages, Nfft):
+def setupTwiddlesLUT_dif_vec(Twiddles_vec, Nfft):
+  # Nfft power of 2
+  stages = int(np.log2(Nfft))
   Theta = (2 * np.pi) / Nfft;
-  for k in range(stages):
-    with np.nditer(Twiddles, op_flags=['readwrite']) as it:
-      for idx, twi in enumerate(it):
-        Phi = Theta * idx;
-        twi[...]['re'] = np.cos(Phi) # * ((1 << FFT_TWIDDLE_DYN) - 1)
-        twi[...]['im'] = np.sin(Phi) # * ((1 << FFT_TWIDDLE_DYN) - 1)
+  # Twiddle factors ([[twi0_re, twi0_im], [twi1_re, twi1_im]])
+  twi = [[np.cos(i * Theta), np.sin(i * Theta)] for i in range(int(Nfft/2))]
+  # Write the Twiddle factors
+  for s in range(stages):
+    for t in range(int(Nfft/2)):
+      Twiddles_vec[int(s * Nfft / 2 + t)]['re'] = twi[int((2**(s) * t) % int(Nfft / 2))][0]
+      Twiddles_vec[int(s * Nfft / 2 + t)]['im'] = twi[int((2**(s) * t) % int(Nfft / 2))][1]
+  return Twiddles_vec
+
+  with np.nditer(Twiddles_vec, op_flags=['readwrite']) as it:
+    for idx, twi in enumerate(it):
+      Phi = Theta * idx;
+      twi[...]['re'] = np.cos(Phi)
+      twi[...]['im'] = np.sin(Phi)
 
 def setupInput(samples, Nfft, dyn):
   rand.seed()
@@ -108,7 +118,7 @@ else:
   print("Data type not recognized. Available are [float32|float16|int16]")
   sys.exit()
 
-N_TWID_V = np.log2(NFFT)*NFFT/2
+N_TWID_V = int(np.log2(NFFT)*NFFT/2)
 
 # Complex data type with int16 for real and img parts
 dtype_cplx = np.dtype([('re', dtype), ('im', dtype)])
@@ -121,7 +131,7 @@ gold_out  = np.empty(NFFT, dtype=dtype_cplx)
 
 # Initialize the twiddle factors
 setupTwiddlesLUT(twiddle, NFFT)
-setupTwiddlesLUT_vec(twiddle_v, N_TWID_V)
+twiddle_v = setupTwiddlesLUT_dif_vec(twiddle_v, NFFT)
 
 # Initialize the input samples
 setupInput(samples, NFFT, FFT2_SAMPLE_DYN)
@@ -144,5 +154,5 @@ print(".section .data,\"aw\",@progbits")
 emit("NFFT", np.array(NFFT, dtype=np.uint64))
 emit("samples", samples_s.astype(dtype), 'NR_LANES*4')
 emit("twiddle", twiddle_s.astype(dtype), 'NR_LANES*4')
-emit("twiddle_v", twiddle_v_s.astype(dtype), 'NR_LANES*4')
+emit("twiddle_vec", twiddle_v_s.astype(dtype), 'NR_LANES*4')
 emit("gold_out", gold_out_s.astype(dtype), 'NR_LANES*4')

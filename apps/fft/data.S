@@ -2,141 +2,37 @@
 .global NFFT
 .balign 8
 NFFT:
-    .word 0x00000010
+    .word 0x00000004
     .word 0x00000000
 .global samples
 .balign NR_LANES*4
 samples:
-    .word 0x46c0b298
-    .word 0x46b77576
-    .word 0xc6a620e1
-    .word 0x46985c20
-    .word 0x46ac0572
-    .word 0xc605e936
-    .word 0xc60ca303
-    .word 0x46483641
-    .word 0xc6cd3640
-    .word 0xc63281d6
-    .word 0xc3f869fc
-    .word 0x46005545
-    .word 0xc6c398b9
-    .word 0xc6f59981
-    .word 0xc588d944
-    .word 0x46d91253
-    .word 0xc6c8cb3e
-    .word 0x46f862e9
-    .word 0xc6bc060b
-    .word 0xc66ef3fd
-    .word 0xc63d57d6
-    .word 0x468984f1
-    .word 0x464c84b6
-    .word 0x45861fef
-    .word 0x4699bec0
-    .word 0xc6bc59e2
-    .word 0xc6bd3757
-    .word 0xc3442a41
-    .word 0x46fac171
-    .word 0xc54c29e6
-    .word 0xc5c14778
-    .word 0xc6d2afe2
+    .word 0xc5d9a53a
+    .word 0xc64af149
+    .word 0xc6a60d3a
+    .word 0xc5e92333
+    .word 0xc63e666f
+    .word 0x465c0acd
+    .word 0x467045f0
+    .word 0xc6930b8b
 .global twiddle
 .balign NR_LANES*4
 twiddle:
     .word 0x3f800000
     .word 0x00000000
-    .word 0x3f6c835e
-    .word 0x3ec3ef15
-    .word 0x3f3504f3
-    .word 0x3f3504f3
-    .word 0x3ec3ef15
-    .word 0x3f6c835e
     .word 0x248d3132
     .word 0x3f800000
-    .word 0xbec3ef15
-    .word 0x3f6c835e
-    .word 0xbf3504f3
-    .word 0x3f3504f3
-    .word 0xbf6c835e
-    .word 0x3ec3ef15
     .word 0xbf800000
     .word 0x250d3132
-    .word 0xbf6c835e
-    .word 0xbec3ef15
-    .word 0xbf3504f3
-    .word 0xbf3504f3
-    .word 0xbec3ef15
-    .word 0xbf6c835e
     .word 0xa553c9ca
     .word 0xbf800000
-    .word 0x3ec3ef15
-    .word 0xbf6c835e
-    .word 0x3f3504f3
-    .word 0xbf3504f3
-    .word 0x3f6c835e
-    .word 0xbec3ef15
 .global twiddle_vec
 .balign NR_LANES*4
 twiddle_vec:
     .word 0x3f800000
     .word 0x00000000
-    .word 0x3f6c835e
-    .word 0x3ec3ef15
-    .word 0x3f3504f3
-    .word 0x3f3504f3
-    .word 0x3ec3ef15
-    .word 0x3f6c835e
     .word 0x248d3132
     .word 0x3f800000
-    .word 0xbec3ef15
-    .word 0x3f6c835e
-    .word 0xbf3504f3
-    .word 0x3f3504f3
-    .word 0xbf6c835e
-    .word 0x3ec3ef15
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f3504f3
-    .word 0x3f3504f3
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0xbf3504f3
-    .word 0x3f3504f3
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f3504f3
-    .word 0x3f3504f3
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0xbf3504f3
-    .word 0x3f3504f3
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x248d3132
-    .word 0x3f800000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f800000
-    .word 0x00000000
-    .word 0x3f800000
-    .word 0x00000000
     .word 0x3f800000
     .word 0x00000000
     .word 0x3f800000
@@ -144,35 +40,11 @@ twiddle_vec:
 .global gold_out
 .balign NR_LANES*4
 gold_out:
-    .word 0xc783394a
-    .word 0x46bd3927
-    .word 0x47ef2f50
-    .word 0x470368f2
-    .word 0x470195f5
-    .word 0x47984b7a
-    .word 0x4751ae27
-    .word 0xc7465e82
-    .word 0xc6ec9383
-    .word 0x47d4dd24
-    .word 0x4789aada
-    .word 0x46bc0e05
-    .word 0xc58a2af8
-    .word 0x47dae632
-    .word 0x484a4ff7
-    .word 0xc752de03
-    .word 0x47a7b256
-    .word 0xc70ced69
-    .word 0x475a36a3
-    .word 0x47965890
-    .word 0x477f77f8
-    .word 0x47bf55b5
-    .word 0xc833ec2d
-    .word 0xc6db05a0
-    .word 0xc6939147
-    .word 0xc68ddc9c
-    .word 0x45542a1f
-    .word 0x4677b81c
-    .word 0xc78c856d
-    .word 0x4792ebcb
-    .word 0x4790c637
-    .word 0xc7a482c9
+    .word 0xc6c386c8
+    .word 0xc6c4c796
+    .word 0x46818ca7
+    .word 0x4615644e
+    .word 0xc64f6488
+    .word 0x46d5e11a
+    .word 0xc5bfe355
+    .word 0xc778d71e

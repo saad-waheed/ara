@@ -691,15 +691,15 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
   // Create the current mask level
   //vslideup_vx_f32m1(mask_vec_buf, mask_vec, vl/4, vl_mask);
   //mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
-  mask_vec = vlm_v_b32(*mask_addr_vec[0], vl);
+  mask_vec = vlm_v_b32(mask_addr_vec[0], vl);
   mask_vec_buf = vmnot_m_b32(mask_vec, vl);
 
   // Permutate the numbers
   // The first permutation is easier (just halving, no masks needed)
-  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
-  vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
-  vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
-  vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
+  vbuf_re = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
+  vbuf_im = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
+  upper_wing_re = vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl/2);
+  upper_wing_im = vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl/2);
   lower_wing_re = vmv_v_v_f32m1(vbuf_re, vl/2);
   lower_wing_im = vmv_v_v_f32m1(vbuf_im, vl/2);
 
@@ -719,7 +719,7 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
     // Create the current mask level
     //vslideup_vx_f32m1(mask_vec_buf, mask_vec, 0, vl_mask);
     //mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
-    mask_vec = vlm_v_b32(*mask_addr_vec[i], vl);
+    mask_vec = vlm_v_b32(mask_addr_vec[i], vl);
     mask_vec_buf = vmnot_m_b32(mask_vec, vl);
 
     // 1) Get the upper wing output
@@ -756,6 +756,8 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
   lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl/2);
 
   // Store (segmented if RE and IM are separated!)
-  vse32_v_f32m1(samples_re, lower_wing_re, vl);
-  vse32_v_f32m1(samples_im, lower_wing_im, vl);
+  vse32_v_f32m1(samples_re,      upper_wing_re, vl);
+  vse32_v_f32m1(samples_re + vl, lower_wing_re, vl);
+  vse32_v_f32m1(samples_im,      upper_wing_im, vl);
+  vse32_v_f32m1(samples_im + vl, lower_wing_im, vl);
 }

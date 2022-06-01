@@ -117,11 +117,11 @@ int main() {
   // Vector DIF FFT //
   ////////////////////
   // Example for 16 Samples
-  uint8 mask_addr_0 = {0xFF, 0x00, 0xFF, 0x00};
-  uint8 mask_addr_1 = {0xF0, 0xF0, 0xF0, 0xF0};
-  uint8 mask_addr_2 = {0xCC, 0xCC, 0xCC, 0xCC};
-  uint8 mask_addr_3 = {0xAA, 0xAA, 0xAA, 0xAA};
-  uint8_t** mask_addr_vec = {mask_addr_0, mask_addr_1, mask_addr_2, mask_addr_3};
+  uint8 mask_addr_0[4] = {0xFF, 0x00, 0xFF, 0x00};
+  uint8 mask_addr_1[4] = {0xF0, 0xF0, 0xF0, 0xF0};
+  uint8 mask_addr_2[4] = {0xCC, 0xCC, 0xCC, 0xCC};
+  uint8 mask_addr_3[4] = {0xAA, 0xAA, 0xAA, 0xAA};
+  uint8_t* mask_addr_vec[4] = {mask_addr_0, mask_addr_1, mask_addr_2, mask_addr_3};
 
   float* samples_reim = cmplx2reim(samples_vec, buf, NFFT);
 //  // Print the twiddles
@@ -147,6 +147,11 @@ int main() {
   printf("\n");
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("Out_DIF[%d] == %f + (%f)j\n", i, samples_copy[i][0], samples_copy[i][1]);
+  }
+  printf("\n");
+  // Print the results
+  for (unsigned int i = 0; i < NFFT; ++i) {
+    printf("Out_vec_DIF[%d] == %f + (%f)j\n", i, samples_reim[i], samples_reim[i+NFFT]);
   }
   printf("\n");
   for (unsigned int i = 0; i < NFFT; ++i) {

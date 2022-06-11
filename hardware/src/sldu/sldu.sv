@@ -481,7 +481,7 @@ module sldu import ara_pkg::*; import rvv_pkg::*; #(
     // If this was the last request, wait for all the final grants!
     // If this is a reduction, no need for the final grants
     if (!(|result_queue_valid_d[result_queue_read_pnt_q]) &&
-      (vinsn_commit.vfu == VFU_Alu || (&result_final_gnt_d || commit_cnt_q > (NrLanes * 8))))
+      (vinsn_commit.vfu == VFU_Alu || (&result_final_gnt_d || (commit_cnt_q > (NrLanes * 8)))))
       // There is something waiting to be written
       if (!result_queue_empty) begin
         // Increment the read pointer
@@ -541,19 +541,21 @@ module sldu import ara_pkg::*; import rvv_pkg::*; #(
         vinsn_queue_d.vinsn[vinsn_queue_q.accept_pnt].vtype.vsew = EW64;
 
       // Initialize counters
-      if (vinsn_queue_d.issue_cnt == '0)
+      if (vinsn_queue_d.issue_cnt == '0) begin
         issue_cnt_d  = pe_req_i.op inside {VSLIDEUP, VSLIDEDOWN}
                      ? pe_req_i.vl << int'(pe_req_i.vtype.vsew)
                      : (NrLanes * ($clog2(NrLanes) + 1)) << EW64;
-      if (vinsn_queue_d.commit_cnt == '0)
+        // Trim vector elements which are not written by the slide unit
+        if (pe_req_i.op == VSLIDEUP)
+          issue_cnt_d -= vinsn_queue_d.vinsn[vinsn_queue_q.accept_pnt].stride;
+      end
+      if (vinsn_queue_d.commit_cnt == '0) begin
         commit_cnt_d = pe_req_i.op inside {VSLIDEUP, VSLIDEDOWN}
                      ? pe_req_i.vl << int'(pe_req_i.vtype.vsew)
                      : (NrLanes * ($clog2(NrLanes) + 1)) << EW64;
-
-      // Trim vector elements which are not written by the slide unit
-      if (pe_req_i.op == VSLIDEUP) begin
-        issue_cnt_d -= vinsn_queue_d.vinsn[vinsn_queue_q.accept_pnt].stride;
-        commit_cnt_d -= vinsn_queue_d.vinsn[vinsn_queue_q.accept_pnt].stride;
+        // Trim vector elements which are not written by the slide unit
+        if (pe_req_i.op == VSLIDEUP)
+          commit_cnt_d -= vinsn_queue_d.vinsn[vinsn_queue_q.accept_pnt].stride;
       end
 
       // Bump pointers and counters of the vector instruction queue

@@ -35,7 +35,7 @@ void Radix4FFT_DIF(signed short *__restrict__ Data, signed short *__restrict__ T
 void Radix2FFT_DIT(signed short *__restrict__ Data, signed short *__restrict__ Twiddles, int N_FFT2);
 void Radix2FFT_DIF(signed short *__restrict__ Data, signed short *__restrict__ Twiddles, int N_FFT2);
 void Radix2FFT_DIT_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles, int N_FFT2);
-void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles, int N_FFT2);
+void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles, int N_FFT2, int n_break);
 
 void SwapSamples (cmplxtype *__restrict__ Data, short *__restrict__ SwapTable, int Ni);
 

@@ -25,6 +25,9 @@
 
 #define MAX_NFFT 256
 
+#define DEBUG
+//#undef DEBUG
+
 extern unsigned long int NFFT;
 
 extern dtype twiddle[] __attribute__((aligned(32 * NR_LANES), section(".l2")));
@@ -73,18 +76,21 @@ int main() {
     printf("In_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
   }
   printf("\n");
+/*
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("In_DIF[%d] == %f + (%f)j\n", i, samples_copy[i][0], samples_copy[i][1]);
   }
   printf("\n");
-
+*/
   // Swap samples for DIT FFT
   SwapSamples(samples, SwapTable, NFFT);
 
+/*
   printf("Swapping samples for DIT:\n\n");
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("In_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
   }
+*/
 
   /////////////
   // DIT FFT //
@@ -103,9 +109,11 @@ int main() {
   /////////////
 
   start_timer();
-  Radix2FFT_DIF_float((dtype*) samples_copy, twiddle, NFFT);
+  Radix2FFT_DIF_float((dtype*) samples_copy, twiddle, NFFT, 1);
   stop_timer();
+#ifndef DEBUG
   SwapSamples(samples_copy, SwapTable, NFFT);
+#endif
 
   printf("Initializing Inputs for DIF\n");
 
@@ -117,37 +125,40 @@ int main() {
   // Vector DIF FFT //
   ////////////////////
   // Example for 16 Samples
-  uint8 mask_addr_0[4] = {0xFF, 0x00, 0xFF, 0x00};
-  uint8 mask_addr_1[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-  uint8 mask_addr_2[4] = {0xCC, 0xCC, 0xCC, 0xCC};
-  uint8 mask_addr_3[4] = {0xAA, 0xAA, 0xAA, 0xAA};
-  uint8_t* mask_addr_vec[4] = {mask_addr_0, mask_addr_1, mask_addr_2, mask_addr_3};
+  //uint8_t mask_addr_0[4] = {0xFF, 0x00, 0xFF, 0x00};
+  //uint8_t mask_addr_1[4] = {0xF0, 0xF0, 0xF0, 0xF0};
+  uint8_t mask_addr_0[4] = {0xAA, 0xAA, 0xAA, 0xAA};
+  const uint8_t* mask_addr_vec[4] = {mask_addr_0};
 
   float* samples_reim = cmplx2reim(samples_vec, buf, NFFT);
-//  // Print the twiddles
-//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
-//    printf("twiddle_vec[%d] == %f + j%f\n", i, (twiddle_vec[i])[0],  (twiddle_vec[i])[1]);
-//  }
+  // Print the twiddles
+  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+    printf("twiddle_vec[%d] == %f + j%f\n", i, (twiddle_vec[i])[0],  (twiddle_vec[i])[1]);
+  }
   float* twiddle_reim = cmplx2reim(twiddle_vec, buf, ((NFFT >> 1) * (31 - __builtin_clz(NFFT))));
   // Print the twiddles
-//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
-//    printf("twiddle_re[%d] == %f\n", i, twiddle_reim[i]);
-//  }
-//  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
-//    printf("twiddle_im[%d] == %f\n", i, twiddle_reim[i + ((NFFT >> 1) * (31 - __builtin_clz(NFFT)))]);
-//  }
+  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+    printf("twiddle_re[%d] == %f\n", i, twiddle_reim[i]);
+  }
+  for (unsigned int i = 0; i < (unsigned int) ((NFFT >> 1) * (31 - __builtin_clz(NFFT))); ++i) {
+    printf("twiddle_im[%d] == %f\n", i, twiddle_reim[i + ((NFFT >> 1) * (31 - __builtin_clz(NFFT)))]);
+  }
   fft_r2dif_vec(samples_reim, samples_reim + NFFT,
                 twiddle_reim, twiddle_reim + ((NFFT >> 1) * (31 - __builtin_clz(NFFT))),
                 mask_addr_vec, NFFT);
 
+/*
   // Print the results
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("Out_DIT[%d] == %f + (%f)j\n", i, samples[i][0], samples[i][1]);
   }
+*/
+///*
   printf("\n");
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("Out_DIF[%d] == %f + (%f)j\n", i, samples_copy[i][0], samples_copy[i][1]);
   }
+//*/
   printf("\n");
   // Print the results
   for (unsigned int i = 0; i < NFFT; ++i) {
@@ -157,22 +168,6 @@ int main() {
   for (unsigned int i = 0; i < NFFT; ++i) {
     printf("gold_out[%d] == %f + (%f)j\n", i , gold_out[i][0], gold_out[i][1]);
   }
-/*
-  // Check
-  for (int i = 0; i < NFFT; ++i) {
-    if (samples[i] != samples_copy[i]) {
-      printf("In_DIT[%d] != In_DIF[%d]\n", i, i);
-      return 1;
-    }
-  }
-  // Check
-  for (int i = 0; i < NFFT; ++i) {
-    if (samples[i] != gold_out[i]) {
-      printf("In_DIT[%d] != gold_out[%d]\n", i, i);
-      return 1;
-    }
-  }
-*/
 
   return 0;
 }

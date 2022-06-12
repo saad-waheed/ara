@@ -109,7 +109,7 @@ int main() {
   /////////////
 
   start_timer();
-  Radix2FFT_DIF_float((dtype*) samples_copy, twiddle, NFFT, 1);
+  Radix2FFT_DIF_float((dtype*) samples_copy, twiddle, NFFT, 2);
   stop_timer();
 #ifndef DEBUG
   SwapSamples(samples_copy, SwapTable, NFFT);
@@ -125,10 +125,11 @@ int main() {
   // Vector DIF FFT //
   ////////////////////
   // Example for 16 Samples
-  //uint8_t mask_addr_0[4] = {0xFF, 0x00, 0xFF, 0x00};
-  //uint8_t mask_addr_1[4] = {0xF0, 0xF0, 0xF0, 0xF0};
-  uint8_t mask_addr_0[4] = {0xAA, 0xAA, 0xAA, 0xAA};
-  const uint8_t* mask_addr_vec[4] = {mask_addr_0};
+//  uint8_t mask_addr_0[8] = {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0};
+  uint8_t mask_addr_0[8] = {0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0, 0xF0};
+  uint8_t mask_addr_1[8] = {0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC, 0xCC};
+  uint8_t mask_addr_2[8] = {0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA};
+  const uint8_t* mask_addr_vec[3] = {mask_addr_0, mask_addr_1, mask_addr_2};
 
   float* samples_reim = cmplx2reim(samples_vec, buf, NFFT);
   // Print the twiddles

@@ -304,15 +304,16 @@ void Radix2FFT_DIF_float(dtype *__restrict__ Data, dtype *__restrict__ Twiddles,
     }
     iA = 0;
 
-    /* Last Layer: W = (1, 0) */
-    for (iCnt3 = 0; iCnt3 < (N_FFT2>>1); iCnt3++) {
-      if ((iCnt1 + iCnt3) >= n_break) break;
-      cmplxtype Tmp;
-      iB = iA + 1;
-      Tmp = (DataV[iA] - DataV[iB]);
-      DataV[iA] = (DataV[iA] + DataV[iB]);
-      DataV[iB] = Tmp;
-      iA = iA + 2;
+    if ((iCnt1) < n_break) {
+       /* Last Layer: W = (1, 0) */
+       for (iCnt3 = 0; iCnt3 < (N_FFT2>>1); iCnt3++) {
+         cmplxtype Tmp;
+         iB = iA + 1;
+         Tmp = (DataV[iA] - DataV[iB]);
+         DataV[iA] = (DataV[iA] + DataV[iB]);
+         DataV[iB] = Tmp;
+         iA = iA + 2;
+       }
     }
 }
 
@@ -635,6 +636,7 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
   // vl of the vectors (each vector contains half of the samples)
   size_t vl = n_fft/2;
   size_t vl_mask = vl;
+  size_t vl_slamt = vl/2;
   unsigned int log2_nfft= 31 - __builtin_clz(n_fft);
   vdtype upper_wing_re, upper_wing_im;
   vdtype lower_wing_re, lower_wing_im;
@@ -702,10 +704,10 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
 
   // Permutate the numbers
   // The first permutation is easier (just halving, no masks needed)
-  vbuf_re       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
-  vbuf_im       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
-  upper_wing_re = vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl);
-  upper_wing_im = vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl);
+  vbuf_re       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl_slamt, vl/2);
+  vbuf_im       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl_slamt, vl/2);
+  upper_wing_re = vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl_slamt, vl);
+  upper_wing_im = vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl_slamt, vl);
   lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl);
   lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl);
   // The next lines could be optimized by moving vl/2 elements only
@@ -727,8 +729,9 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
     twiddle_re = vle32_v_f32m1(twiddles_re, vl);
     twiddle_im = vle32_v_f32m1(twiddles_im, vl);
 
-    // HALVE vl
-    vl_mask >>= 1;
+    // HALVE vl_mask and slamt (slide amount)
+    vl_mask  >>= 1;
+    vl_slamt >>= 1;
 
     // 1) Get the upper wing output
     vbuf_re = vfadd_vv_f32m1(upper_wing_re, lower_wing_re, vl);
@@ -751,12 +754,12 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
       //mask_vec = vmxor_mm_b32(mask_vec, mask_vec_buf, vl);
       mask_vec     = vlm_v_b32(mask_addr_vec[i], vl);
       mask_vec_buf = vmnot_m_b32(mask_vec, vl);
-    
+
       // Permutate the numbers
-      vbuf_re       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl/2, vl/2);
-      vbuf_im       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl/2, vl/2);
-      upper_wing_re = vslideup_vx_f32m1(upper_wing_re, lower_wing_re, vl/2, vl);
-      upper_wing_im = vslideup_vx_f32m1(upper_wing_im, lower_wing_im, vl/2, vl);
+      vbuf_re       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, vl_slamt, vl);
+      vbuf_im       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, vl_slamt, vl);
+      upper_wing_re = vslideup_vx_f32m1_m(mask_vec, upper_wing_re, lower_wing_re, vl_slamt, vl);
+      upper_wing_im = vslideup_vx_f32m1_m(mask_vec, upper_wing_im, lower_wing_im, vl_slamt, vl);
       lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl);
       lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl);
     }
@@ -772,7 +775,7 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
   upper_wing_im = vslideup_vx_f32m1_m(mask_vec, upper_wing_im, lower_wing_im, vl/2, vl);
   lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl);
 */
-  // Store (segmented if RE and IM are separated!)
+  // Store (segmented if RE and IM are not separated!)
   vse32_v_f32m1(samples_re, upper_wing_re, vl);
   vse32_v_f32m1(samples_im, upper_wing_im, vl);
   vse32_v_f32m1(samples_re + vl, lower_wing_re, vl);

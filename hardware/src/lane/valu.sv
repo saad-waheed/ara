@@ -426,7 +426,7 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
               alu_operand_ready_o = {vinsn_issue_q.use_vs2, vinsn_issue_q.use_vs1};
               // Narrowing instructions might need an extra cycle before acknowledging the mask operands
               // If the results are being sent to the Mask Unit, it is up to it to acknowledge the operands.
-              if (!narrowing(vinsn_issue_q.op) && vinsn_issue_q != VFU_MaskUnit)
+              if (!narrowing(vinsn_issue_q.op) && vinsn_issue_q.vfu != VFU_MaskUnit)
                 mask_ready_o = !vinsn_issue_q.vm;
 
               // Store the result in the result queue
@@ -455,7 +455,7 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
                   result_queue_valid_d[result_queue_write_pnt_q] = 1'b1;
 
                   // Acknowledge the mask operand, if needed
-                  if (vinsn_issue_q != VFU_MaskUnit)
+                  if (vinsn_issue_q.vfu != VFU_MaskUnit)
                     mask_ready_o = !vinsn_issue_q.vm;
 
                   // Bump pointers and counters of the result queue
@@ -489,7 +489,14 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
                   vinsn_queue_d.issue_pnt = vinsn_queue_q.issue_pnt + 1;
 
                 if (vinsn_queue_d.issue_cnt != 0)
-                  issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                  if (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vfu != VFU_MaskUnit)
+                    issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                  else begin
+                    // Operations between mask vectors operate on bits
+                    issue_cnt_d = (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl / 8) >>
+                      vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vtype.vsew;
+                    issue_cnt_d += |vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl[2:0];
+                  end
               end
             end
           end
@@ -559,7 +566,13 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
                   vinsn_queue_d.issue_pnt = vinsn_queue_q.issue_pnt + 1;
 
                 if (vinsn_queue_d.issue_cnt != 0)
-                  issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                  if (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vfu != VFU_MaskUnit)
+                    issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                  else begin
+                    issue_cnt_d = (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl / 8) >>
+                      vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vtype.vsew;
+                    issue_cnt_d += |vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl[2:0];
+                  end
               end
             end
           end else begin
@@ -642,7 +655,13 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
                 vinsn_queue_d.issue_pnt = vinsn_queue_q.issue_pnt + 1;
 
               if (vinsn_queue_d.issue_cnt != 0)
-                issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                if (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vfu != VFU_MaskUnit)
+                  issue_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl;
+                else begin
+                  issue_cnt_d = (vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl / 8) >>
+                    vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vtype.vsew;;
+                  issue_cnt_d += |vinsn_queue_q.vinsn[vinsn_queue_d.issue_pnt].vl[2:0];
+                end
 
               alu_state_d = is_reduction(vinsn_issue_d.op) && (vinsn_queue_d.issue_cnt != 0) ? INTRA_LANE_REDUCTION : NO_REDUCTION;
               // The next will be the first operation of this instruction
@@ -714,8 +733,17 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
       else vinsn_queue_d.commit_pnt += 1;
 
       // Update the commit counter for the next instruction
-      if (vinsn_queue_d.commit_cnt != '0) commit_cnt_d =
-        vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vl;
+      // Operations between mask vectors operates on bits
+      if (vinsn_queue_d.commit_cnt != '0)
+        if (vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vfu != VFU_MaskUnit)
+          commit_cnt_d = vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vl;
+        else begin
+          // We are asking for bits, and we want at least one chunk of bits if
+          // vl > 0. Therefore, commit_cnt = ceil((vl / 8) >> sew)
+          commit_cnt_d = (vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vl / 8) >>
+            vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vtype.vsew;
+          commit_cnt_d += |vinsn_queue_q.vinsn[vinsn_queue_d.commit_pnt].vl[2:0];
+        end
     end
 
     //////////////////////////////
@@ -740,9 +768,23 @@ module valu import ara_pkg::*; import rvv_pkg::*; import cf_math_pkg::idx_width;
         sldu_transactions_cnt_d = $clog2(NrLanes) + 1;
         // Allow the first valid
         red_hs_synch_d = 1'b1;
-        issue_cnt_d    = vfu_operation_i.vl;
+
+        if (vfu_operation_i.vfu != VFU_MaskUnit)
+          issue_cnt_d = vfu_operation_i.vl;
+        else begin
+          // Operations between mask vectors operate on bits
+          issue_cnt_d  = (vfu_operation_i.vl / 8) >> vfu_operation_i.vtype.vsew;
+          issue_cnt_d += |vfu_operation_i.vl[2:0];
+        end
       end
-      if (vinsn_queue_d.commit_cnt == '0) commit_cnt_d = vfu_operation_i.vl;
+      if (vinsn_queue_d.commit_cnt == '0)
+        if (vfu_operation_i.vfu != VFU_MaskUnit)
+          commit_cnt_d = vfu_operation_i.vl;
+        else begin
+          // Operations between mask vectors operate on bits
+          commit_cnt_d  = (vfu_operation_i.vl / 8) >> vfu_operation_i.vtype.vsew;
+          commit_cnt_d += |vfu_operation_i.vl[2:0];
+        end
 
       // Bump pointers and counters of the vector instruction queue
       vinsn_queue_d.accept_pnt += 1;

@@ -631,7 +631,7 @@ float* cmplx2reim(cmplxtype* cmplx, dtype* buf, size_t len) {
 // This will be changed as soon as Ara supports segmented mem ops
 void fft_r2dif_vec(float* samples_re, float* samples_im,
                    const float* twiddles_re, const float* twiddles_im,
-                   const uint8_t** mask_addr_vec, size_t n_fft) {
+                   const uint8_t** mask_addr_vec, const uint32_t* index_ptr, size_t n_fft) {
 
   // vl of the vectors (each vector contains half of the samples)
   size_t vl = n_fft/2;
@@ -643,6 +643,7 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
   vdtype twiddle_re, twiddle_im;
   vdtype vbuf_re, vbuf_im;
   vbool32_t mask_vec, mask_vec_buf;
+  vuint32m1_t index, bindex;
 
   // Use undisturbed policy
   vsetvl_e32m1(vl);
@@ -764,20 +765,14 @@ void fft_r2dif_vec(float* samples_re, float* samples_im,
       lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl);
     }
   }
-/*
-  // Store the result to memory
-  // Reorder the results: rotate, mask, mix
-  // Last round of permutation
-  vbuf_re       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_re, upper_wing_re, 0, vl/2);
-  upper_wing_re = vslideup_vx_f32m1_m(mask_vec, upper_wing_re, lower_wing_re, vl/2, vl);
-  lower_wing_re = vmerge_vvm_f32m1(mask_vec, vbuf_re, lower_wing_re, vl);
-  vbuf_im       = vslidedown_vx_f32m1_m(mask_vec_buf, vbuf_im, upper_wing_im, 0, vl/2);
-  upper_wing_im = vslideup_vx_f32m1_m(mask_vec, upper_wing_im, lower_wing_im, vl/2, vl);
-  lower_wing_im = vmerge_vvm_f32m1(mask_vec, vbuf_im, lower_wing_im, vl);
-*/
-  // Store (segmented if RE and IM are not separated!)
-  vse32_v_f32m1(samples_re, upper_wing_re, vl);
-  vse32_v_f32m1(samples_im, upper_wing_im, vl);
-  vse32_v_f32m1(samples_re + vl, lower_wing_re, vl);
-  vse32_v_f32m1(samples_im + vl, lower_wing_im, vl);
+
+  // Get the indexes for the final store
+  index = vle32_v_u32m1(index_ptr, vl);
+  bindex = vmul_vx_u32m1(index, sizeof(float), vl);
+
+  // Store indexed
+  vsuxei32_v_f32m1(samples_re, bindex, upper_wing_re, vl);
+  vsuxei32_v_f32m1(samples_im, bindex, upper_wing_im, vl);
+  vsuxei32_v_f32m1(samples_re + vl, bindex, lower_wing_re, vl);
+  vsuxei32_v_f32m1(samples_im + vl, bindex, lower_wing_im, vl);
 }

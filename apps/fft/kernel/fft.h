@@ -16,7 +16,7 @@ typedef __fp16 v2sf __attribute__((vector_size (4)));
 
 void fft_r2dif_vec(float* samples_re, float* samples_im,
                    const float* twiddles_re, const float* twiddles_im,
-                   const uint8_t** mask_addr_vec, size_t n_fft);
+                   const uint8_t** mask_addr_vec, const uint32_t* index_ptr, size_t n_fft);
 static inline v2s cplxmuls(v2s x, v2s y);
 static inline cmplxtype cplxmuls_float(cmplxtype x, cmplxtype y);
 static inline v2s cplxmulsdiv2(v2s x, v2s y);
